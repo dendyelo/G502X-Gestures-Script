@@ -23,7 +23,7 @@ A high-performance Lua script for Logitech G Hub that adds advanced gesture func
 3. Navigate to Manage Profiles.
 4. Select a profile and choose Scripting.
 5. Create a new Lua script.
-6. Paste the code from script.lua into the editor.
+6. Paste the code from gestures.lua into the editor.
 7. Click Save & Run to apply the script.
 
 ## ⚙️ Customization
