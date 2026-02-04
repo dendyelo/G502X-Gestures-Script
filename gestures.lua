@@ -1,23 +1,39 @@
+--[[
+Real-time Gesture Script for G502X - STABLE VERSION
+G9 Button:
+- Swipe Right -> Move to Right Desktop (Ctrl+Right)
+- Swipe Left  -> Move to Left Desktop (Ctrl+Left)
+- Swipe Down  -> Application Windows (Ctrl+Down)
+- Swipe Up    -> Mission Control (Ctrl+Up)
+- Quick Click -> Mission Control
+
+]]--
+
 gestureButtonNumber = 9
 minimalHorizontalMovement = 50
 minimalVerticalMovement = 50
 delay = 10
 
+-- State variables
 isDetecting = false
 startX, startY = 0, 0
 gestureMade = false
 checkCount = 0
+
 function OnEvent(event, arg)
     if event == "MOUSE_BUTTON_PRESSED" and arg == gestureButtonNumber then
         isDetecting = true
         gestureMade = false
         checkCount = 0
         startX, startY = GetMousePosition()
+        
+        -- Real-time gesture detection loop
         while isDetecting do
             checkCount = checkCount + 1
             local x, y = GetMousePosition()
             local dx = x - startX
             local dy = y - startY
+            
             -- PRIORITAS HORIZONTAL
             if math.abs(dx) > math.abs(dy) then
                 if dx > minimalHorizontalMovement then
@@ -30,7 +46,8 @@ function OnEvent(event, arg)
                     break
                 end
             end
-            -- VERTICAL
+            
+            -- VERTICAL GESTURE
             if dy < -minimalVerticalMovement then
                 pressTwoKeys("lctrl", "down")
                 gestureMade = true
@@ -40,19 +57,26 @@ function OnEvent(event, arg)
                 gestureMade = true
                 break
             end
+            
+            -- Timeout setelah 20 checks (100ms)
             if checkCount > 20 then
                 break
             end
+            
             Sleep(5)
         end
+        
         isDetecting = false
     end
+    
     if event == "MOUSE_BUTTON_RELEASED" and arg == gestureButtonNumber then
+        -- Quick click tanpa gesture = Mission Control
         if not gestureMade then
             pressTwoKeys("lctrl", "up")
         end
     end
 end
+
 function pressTwoKeys(k1, k2)
     PressKey(k1)
     Sleep(delay)
