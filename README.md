@@ -70,17 +70,6 @@ Set `debugLogging = true`, click **Save & Run**, and reproduce the issue. Look f
 
 `KEY-UP ... (API returned)` means the release call returned normally; it does not verify that macOS has processed the release. Errors are logged even when debug logging is disabled. Turn debug logging off once troubleshooting is complete.
 
-## 🧪 Testing
-
-With Lua installed, run these checks from the repository root:
-
-```sh
-luac -p gestures.lua
-lua tests/gestures_test.lua
-```
-
-The tests mock G HUB input APIs and cover real-time firing, one action per hold, click fallback, profile changes, and error cleanup. They send no real input. Use G HUB on your own Mac to verify the actual shortcuts and button mapping.
-
 ## 🙏 Acknowledgments
 
 Thanks to @devraan for sharing macOS feedback and key-release cleanup suggestions.

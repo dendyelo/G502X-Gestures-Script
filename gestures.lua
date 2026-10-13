@@ -1,13 +1,15 @@
+-- Logitech G502 X gestures for macOS: hold G9 and flick.
 local gestureButtonNumber = 9
 local minimalHorizontalMovement = 50
 local minimalVerticalMovement = 50
-local gestureChecks = 20
+local gestureChecks = 20 -- 20 checks x 5 ms = 100 ms detection window.
 local sampleIntervalMs = 5
+-- Shortcut timings (ms); release the arrow before Ctrl.
 local modifierLeadMs = 15
 local keyHoldMs = 25
 local keyReleaseGapMs = 10
 local keyUpRetryMs = 40
-local debugLogging = false
+local debugLogging = false -- Enable only for troubleshooting.
 
 local gestureActive = false
 local gestureFired = false
@@ -31,6 +33,7 @@ local function resetGestureState()
 end
 
 local function releasePressedKeys()
+    -- Release in reverse order; keep failed key-ups tracked for retry.
     for i = #pressedKeys, 1, -1 do
         local key = pressedKeys[i]
         local ok, err = pcall(ReleaseKey, key)
@@ -49,6 +52,7 @@ local function releasePressedKeys()
 end
 
 local function pressTrackedKey(key)
+    -- Track before the API call so cleanup also covers partial failures.
     pressedKeys[#pressedKeys + 1] = key
     PressKey(key)
 end
@@ -60,6 +64,7 @@ local function pressTwoKeys(k1, k2)
     Sleep(keyHoldMs)
     releasePressedKeys()
 
+    -- Repeat only key-up; this sends no additional shortcut.
     Sleep(keyUpRetryMs)
     pressedKeys = { k1, k2 }
     debugLog("RETRY KEY-UP for %s + %s", k1, k2)
@@ -74,6 +79,7 @@ local function classifyGesture(dx, dy)
             return "left"
         end
     end
+    -- Preserve the tested macOS orientation: increasing Y means up.
     if dy < -minimalVerticalMovement then
         return "down"
     elseif dy > minimalVerticalMovement then
@@ -95,6 +101,7 @@ local function watchGesture()
         local dx, dy = x - startX, y - startY
         local key = classifyGesture(dx, dy)
         if key then
+            -- Latch before sending input: one action until G9 is released.
             gestureFired = true
             sendGesture(key, dx, dy, "while held")
             return
@@ -116,6 +123,7 @@ local function handleEvent(event, arg)
     end
     debugLog("%s G%d; active=%s", event, arg, tostring(gestureActive))
 
+    -- Finish pending key-ups before allowing another shortcut.
     if not releasePressedKeys() then
         resetGestureState()
         return
@@ -135,6 +143,7 @@ local function handleEvent(event, arg)
     local alreadyFired = gestureFired
     resetGestureState()
     if not alreadyFired then
+        -- No gesture in the detection window: preserve Mission Control click.
         sendGesture("up", 0, 0, "click on release")
     end
 end
