@@ -43,7 +43,7 @@ The script uses your macOS keyboard shortcuts for Mission Control, Application W
 
 ## ⚙️ Customization
 
-Adjust these local variables in the **SETTINGS** section of the script:
+Adjust these local variables at the top of the script:
 
 | Variable | Default | Purpose |
 | :--- | :--- | :--- |

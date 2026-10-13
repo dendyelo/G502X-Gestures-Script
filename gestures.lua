@@ -1,27 +1,3 @@
---[[
-G502 X Gestures v3 - real-time version for Logitech G HUB
-
-Hold G9 and flick the mouse within the initial detection window:
-  Right -> Ctrl+Right (right desktop)
-  Left  -> Ctrl+Left  (left desktop)
-  Up    -> Ctrl+Up    (Mission Control)
-  Down  -> Ctrl+Down  (Application Windows)
-  Release without a detected gesture -> Ctrl+Up (Mission Control)
-
-This restores the original script's real-time detection: sample every
-5 ms for up to 100 ms after G9 is pressed. Fire as soon as a movement
-threshold is exceeded, then ignore further movement until G9 is released.
-G9 cannot be queried using the documented IsMouseButtonPressed API,
-so polling is bounded and there is no loop waiting indefinitely for release.
-Gesture state resets on profile changes and errors.
-Cleanup attempts to release only keys this script attempted to press.
-If a release call fails, the key stays tracked for a later cleanup retry.
-Shortcut delivery separates the arrow key-up from the Ctrl key-up and
-repeats key-up once after a short delay. No second shortcut is sent.
-Optional debug logging records gesture events and shortcut delivery.
-]]--
-
-------------------------------- SETTINGS --------------------------------
 local gestureButtonNumber = 9
 local minimalHorizontalMovement = 50
 local minimalVerticalMovement = 50
@@ -31,8 +7,7 @@ local modifierLeadMs = 15
 local keyHoldMs = 25
 local keyReleaseGapMs = 10
 local keyUpRetryMs = 40
-local debugLogging = false -- Set true to log events and shortcut delivery.
--------------------------------------------------------------------------
+local debugLogging = false
 
 local gestureActive = false
 local gestureFired = false
@@ -46,7 +21,6 @@ local function debugLog(format, ...)
 end
 
 local function reportError(message)
-    -- Logging must not interrupt key cleanup.
     pcall(OutputLogMessage, "[gesture] %s\n", tostring(message))
 end
 
@@ -57,8 +31,6 @@ local function resetGestureState()
 end
 
 local function releasePressedKeys()
-    -- Release the shortcut key before its modifier. A failed release
-    -- must not prevent attempts to release the remaining keys.
     for i = #pressedKeys, 1, -1 do
         local key = pressedKeys[i]
         local ok, err = pcall(ReleaseKey, key)
@@ -69,7 +41,6 @@ local function releasePressedKeys()
             reportError("could not release " .. key .. ": " .. tostring(err))
         end
         if i > 1 then
-            -- Even a Sleep error must not skip the modifier's key-up.
             local waited, sleepError = pcall(Sleep, keyReleaseGapMs)
             if not waited then reportError(sleepError) end
         end
@@ -78,7 +49,6 @@ local function releasePressedKeys()
 end
 
 local function pressTrackedKey(key)
-    -- Track before calling the API, in case it sends input then errors.
     pressedKeys[#pressedKeys + 1] = key
     PressKey(key)
 end
@@ -90,8 +60,6 @@ local function pressTwoKeys(k1, k2)
     Sleep(keyHoldMs)
     releasePressedKeys()
 
-    -- An API call returning normally does not prove macOS has processed
-    -- key-up. Repeat only this chord's key-up, without pressing any key.
     Sleep(keyUpRetryMs)
     pressedKeys = { k1, k2 }
     debugLog("RETRY KEY-UP for %s + %s", k1, k2)
@@ -121,17 +89,15 @@ local function sendGesture(key, dx, dy, when)
 end
 
 local function watchGesture()
-    -- Match the original 100 ms window. A bounded loop avoids waiting
-    -- forever for a release event that this handler cannot process yet.
     for _ = 1, gestureChecks do
         Sleep(sampleIntervalMs)
         local x, y = GetMousePosition()
         local dx, dy = x - startX, y - startY
         local key = classifyGesture(dx, dy)
         if key then
-            gestureFired = true -- Set before keyboard calls, not on release.
+            gestureFired = true
             sendGesture(key, dx, dy, "while held")
-            return -- Never sample again after firing this gesture.
+            return
         end
     end
 end
@@ -150,14 +116,13 @@ local function handleEvent(event, arg)
     end
     debugLog("%s G%d; active=%s", event, arg, tostring(gestureActive))
 
-    -- Retry any failed cleanup before allowing another shortcut.
     if not releasePressedKeys() then
         resetGestureState()
         return
     end
 
     if event == "MOUSE_BUTTON_PRESSED" then
-        if gestureActive then return end -- Ignore a duplicate press.
+        if gestureActive then return end
         local x, y = GetMousePosition()
         startX, startY = x, y
         gestureActive = true
@@ -168,10 +133,8 @@ local function handleEvent(event, arg)
 
     if not gestureActive then return end
     local alreadyFired = gestureFired
-    resetGestureState() -- End this gesture before calling keyboard APIs.
+    resetGestureState()
     if not alreadyFired then
-        -- Match the original click action. Do not classify late movement
-        -- on release or replay a gesture that already fired while held.
         sendGesture("up", 0, 0, "click on release")
     end
 end
@@ -181,8 +144,6 @@ function OnEvent(event, arg, family)
     if not ok then
         resetGestureState()
     end
-    -- Always finish with cleanup, including a retry if normal key release
-    -- failed. Keys that still fail remain tracked for the next event.
     releasePressedKeys()
     if not ok then
         reportError(err)
